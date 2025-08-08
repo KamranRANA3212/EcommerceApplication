@@ -1,0 +1,187 @@
+@model EcommerceApplication.Models.ViewModels.ProductViewModel
+@{
+    ViewData["Title"] = "Edit Product";
+}
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <h2>Edit Product</h2>
+    </div>
+    <div class="col-md-6 text-end">
+        <a asp-action="Index" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Products
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form asp-action="Edit" method="post" enctype="multipart/form-data">
+            <input type="hidden" asp-for="Id" />
+            <input type="hidden" asp-for="CreatedDate" />
+            <input type="hidden" asp-for="Photo" />
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label asp-for="ProductName" class="form-label"></label>
+                        <input asp-for="ProductName" class="form-control" />
+                        <span asp-validation-for="ProductName" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="SKU" class="form-label"></label>
+                        <input asp-for="SKU" class="form-control" />
+                        <span asp-validation-for="SKU" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Price" class="form-label"></label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input asp-for="Price" class="form-control" type="number" step="0.01" min="0.01" />
+                        </div>
+                        <span asp-validation-for="Price" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="CategoryId" class="form-label"></label>
+                                            <select asp-for="CategoryId" class="form-select">
+                        <option value="">Select Category</option>
+                        @foreach (var category in Model.Categories)
+                        {
+                            <option value="@category.Id">@category.Name</option>
+                        }
+                    </select>
+                        <span asp-validation-for="CategoryId" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Status" class="form-label"></label>
+                        <select asp-for="Status" class="form-select" asp-items="@Html.GetEnumList<EcommerceApplication.Domain.Entities.ProductStatus>()">
+                        </select>
+                        <span asp-validation-for="Status" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="PhotoFile" class="form-label">Update Product Photo</label>
+                        <input asp-for="PhotoFile" class="form-control" type="file" accept=".jpg,.jpeg,.png" />
+                        <div class="form-text">Only JPG, JPEG, and PNG files are allowed. Maximum size: 25KB.</div>
+                        <span asp-validation-for="PhotoFile" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Current Photo</label>
+                        <div class="border rounded p-2 text-center" style="height: 200px; background-color: #f8f9fa;">
+                            @if (!string.IsNullOrEmpty(Model.Photo))
+                            {
+                                <img id="currentImage" src="~/@Model.Photo" alt="@Model.ProductName" 
+                                     style="max-width: 100%; max-height: 100%;" />
+                            }
+                            else
+                            {
+                                <div class="text-muted" style="line-height: 180px;">
+                                    <i class="bi bi-image"></i> No image uploaded
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">New Photo Preview</label>
+                        <div class="border rounded p-2 text-center" style="height: 200px; background-color: #f8f9fa;">
+                            <img id="imagePreview" src="#" alt="Preview" style="max-width: 100%; max-height: 100%; display: none;" />
+                            <div id="noImageText" class="text-muted" style="line-height: 180px;">
+                                <i class="bi bi-image"></i> No new image selected
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Created Date</label>
+                                <input type="text" class="form-control" value="@Model.CreatedDate.ToString("MM/dd/yyyy HH:mm")" readonly />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Last Modified</label>
+                                <input type="text" class="form-control" 
+                                       value="@(Model.LastModified?.ToString("MM/dd/yyyy HH:mm") ?? "Not modified")" readonly />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-end">
+                <a asp-action="Index" class="btn btn-secondary me-2">Cancel</a>
+                <button type="submit" class="btn btn-primary">Update Product</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // SKU uniqueness check
+        $('#SKU').on('blur', function () {
+            var sku = $(this).val();
+            if (sku) {
+                $.get('@Url.Action("CheckSku", "Products")', { 
+                    sku: sku, 
+                    excludeId: @Model.Id 
+                }, function (response) {
+                    if (!response.isUnique) {
+                        $('#SKU').addClass('is-invalid');
+                        if (!$('#sku-error').length) {
+                            $('#SKU').after('<div class="invalid-feedback" id="sku-error">SKU must be unique.</div>');
+                        }
+                    } else {
+                        $('#SKU').removeClass('is-invalid');
+                        $('#sku-error').remove();
+                    }
+                });
+            }
+        });
+
+        // Image preview functionality
+        $('#PhotoFile').on('change', function() {
+            var file = this.files[0];
+            var preview = $('#imagePreview');
+            var noImageText = $('#noImageText');
+            
+            if (file) {
+                // Validate file size (25KB)
+                if (file.size > 25 * 1024) {
+                    alert('File size must be less than 25KB.');
+                    this.value = '';
+                    preview.hide();
+                    noImageText.show();
+                    return;
+                }
+                
+                // Validate file type
+                var allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+                if (!allowedTypes.includes(file.type)) {
+                    alert('Only JPG, JPEG, and PNG files are allowed.');
+                    this.value = '';
+                    preview.hide();
+                    noImageText.show();
+                    return;
+                }
+                
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.attr('src', e.target.result).show();
+                    noImageText.hide();
+                };
+                reader.readAsDataURL(file);
+            } else {
+                preview.hide();
+                noImageText.show();
+            }
+        });
+    </script>
+} 
