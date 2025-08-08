@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using EcommerceApplication.Domain.Entities;
-using Microsoft.AspNetCore.Http;
+using System.Web;
 
 namespace EcommerceApplication.Models.ViewModels
 {
@@ -35,7 +35,7 @@ namespace EcommerceApplication.Models.ViewModels
         public ProductStatus Status { get; set; }
 
         [Display(Name = "Product Photo")]
-        public IFormFile PhotoFile { get; set; }
+        public HttpPostedFileBase PhotoFile { get; set; }
 
         public string Photo { get; set; }
 

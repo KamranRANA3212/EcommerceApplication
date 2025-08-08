@@ -1,6 +1,6 @@
 @model EcommerceApplication.Models.ViewModels.ProductViewModel
 @{
-    ViewData["Title"] = "Edit Product";
+    ViewBag.Title = "Edit Product";
 }
 
 <div class="row mb-3">
@@ -8,66 +8,65 @@
         <h2>Edit Product</h2>
     </div>
     <div class="col-md-6 text-end">
-        <a asp-action="Index" class="btn btn-secondary">
-            <i class="bi bi-arrow-left"></i> Back to Products
-        </a>
+        @Html.ActionLink("Back to Products", "Index", "Products", null, new { @class = "btn btn-secondary" })
     </div>
 </div>
 
 <div class="card">
     <div class="card-body">
-        <form asp-action="Edit" method="post" enctype="multipart/form-data">
-            <input type="hidden" asp-for="Id" />
-            <input type="hidden" asp-for="CreatedDate" />
-            <input type="hidden" asp-for="Photo" />
+        @using (Html.BeginForm("Edit", "Products", FormMethod.Post, new { enctype = "multipart/form-data" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.HiddenFor(m => m.Id)
+            @Html.HiddenFor(m => m.CreatedDate)
+            @Html.HiddenFor(m => m.Photo)
 
             <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
-                        <label asp-for="ProductName" class="form-label"></label>
-                        <input asp-for="ProductName" class="form-control" />
-                        <span asp-validation-for="ProductName" class="text-danger"></span>
+                        @Html.LabelFor(m => m.ProductName, new { @class = "form-label" })
+                        @Html.TextBoxFor(m => m.ProductName, new { @class = "form-control" })
+                        @Html.ValidationMessageFor(m => m.ProductName, null, new { @class = "text-danger" })
                     </div>
 
                     <div class="mb-3">
-                        <label asp-for="SKU" class="form-label"></label>
-                        <input asp-for="SKU" class="form-control" />
-                        <span asp-validation-for="SKU" class="text-danger"></span>
+                        @Html.LabelFor(m => m.SKU, new { @class = "form-label" })
+                        @Html.TextBoxFor(m => m.SKU, new { @class = "form-control" })
+                        @Html.ValidationMessageFor(m => m.SKU, null, new { @class = "text-danger" })
                     </div>
 
                     <div class="mb-3">
-                        <label asp-for="Price" class="form-label"></label>
+                        @Html.LabelFor(m => m.Price, new { @class = "form-label" })
                         <div class="input-group">
                             <span class="input-group-text">$</span>
-                            <input asp-for="Price" class="form-control" type="number" step="0.01" min="0.01" />
+                            @Html.TextBoxFor(m => m.Price, new { @class = "form-control", type = "number", step = "0.01", min = "0.01" })
                         </div>
-                        <span asp-validation-for="Price" class="text-danger"></span>
+                        @Html.ValidationMessageFor(m => m.Price, null, new { @class = "text-danger" })
                     </div>
 
                     <div class="mb-3">
-                        <label asp-for="CategoryId" class="form-label"></label>
-                                            <select asp-for="CategoryId" class="form-select">
-                        <option value="">Select Category</option>
-                        @foreach (var category in Model.Categories)
-                        {
-                            <option value="@category.Id">@category.Name</option>
-                        }
-                    </select>
-                        <span asp-validation-for="CategoryId" class="text-danger"></span>
-                    </div>
-
-                    <div class="mb-3">
-                        <label asp-for="Status" class="form-label"></label>
-                        <select asp-for="Status" class="form-select" asp-items="@Html.GetEnumList<EcommerceApplication.Domain.Entities.ProductStatus>()">
+                        @Html.LabelFor(m => m.CategoryId, new { @class = "form-label" })
+                        <select id="CategoryId" name="CategoryId" class="form-select">
+                            <option value="">Select Category</option>
+                            @foreach (var category in Model.Categories)
+                            {
+                                <option value="@category.Id" @(Model.CategoryId == category.Id ? "selected=\"selected\"" : "")>@category.Name</option>
+                            }
                         </select>
-                        <span asp-validation-for="Status" class="text-danger"></span>
+                        @Html.ValidationMessageFor(m => m.CategoryId, null, new { @class = "text-danger" })
                     </div>
 
                     <div class="mb-3">
-                        <label asp-for="PhotoFile" class="form-label">Update Product Photo</label>
-                        <input asp-for="PhotoFile" class="form-control" type="file" accept=".jpg,.jpeg,.png" />
+                        @Html.LabelFor(m => m.Status, new { @class = "form-label" })
+                        @Html.DropDownListFor(m => m.Status, new SelectList(Enum.GetValues(typeof(EcommerceApplication.Domain.Entities.ProductStatus))), new { @class = "form-select" })
+                        @Html.ValidationMessageFor(m => m.Status, null, new { @class = "text-danger" })
+                    </div>
+
+                    <div class="mb-3">
+                        @Html.LabelFor(m => m.PhotoFile, "Update Product Photo", new { @class = "form-label" })
+                        <input type="file" name="PhotoFile" id="PhotoFile" class="form-control" accept=".jpg,.jpeg,.png" />
                         <div class="form-text">Only JPG, JPEG, and PNG files are allowed. Maximum size: 25KB.</div>
-                        <span asp-validation-for="PhotoFile" class="text-danger"></span>
+                        @Html.ValidationMessageFor(m => m.PhotoFile, null, new { @class = "text-danger" })
                     </div>
                 </div>
 
@@ -116,67 +115,25 @@
             </div>
 
             <div class="text-end">
-                <a asp-action="Index" class="btn btn-secondary me-2">Cancel</a>
+                @Html.ActionLink("Cancel", "Index", "Products", null, new { @class = "btn btn-secondary me-2" })
                 <button type="submit" class="btn btn-primary">Update Product</button>
             </div>
-        </form>
+        }
     </div>
 </div>
 
 @section Scripts {
     <script>
-        // SKU uniqueness check
-        $('#SKU').on('blur', function () {
-            var sku = $(this).val();
-            if (sku) {
-                $.get('@Url.Action("CheckSku", "Products")', { 
-                    sku: sku, 
-                    excludeId: @Model.Id 
-                }, function (response) {
-                    if (!response.isUnique) {
-                        $('#SKU').addClass('is-invalid');
-                        if (!$('#sku-error').length) {
-                            $('#SKU').after('<div class="invalid-feedback" id="sku-error">SKU must be unique.</div>');
-                        }
-                    } else {
-                        $('#SKU').removeClass('is-invalid');
-                        $('#sku-error').remove();
-                    }
-                });
-            }
-        });
-
-        // Image preview functionality
-        $('#PhotoFile').on('change', function() {
+        $(document).on('change', '#PhotoFile', function () {
             var file = this.files[0];
             var preview = $('#imagePreview');
             var noImageText = $('#noImageText');
-            
             if (file) {
-                // Validate file size (25KB)
-                if (file.size > 25 * 1024) {
-                    alert('File size must be less than 25KB.');
-                    this.value = '';
-                    preview.hide();
-                    noImageText.show();
-                    return;
-                }
-                
-                // Validate file type
-                var allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-                if (!allowedTypes.includes(file.type)) {
-                    alert('Only JPG, JPEG, and PNG files are allowed.');
-                    this.value = '';
-                    preview.hide();
-                    noImageText.show();
-                    return;
-                }
-                
                 var reader = new FileReader();
-                reader.onload = function(e) {
+                reader.onload = function (e) {
                     preview.attr('src', e.target.result).show();
                     noImageText.hide();
-                };
+                }
                 reader.readAsDataURL(file);
             } else {
                 preview.hide();
