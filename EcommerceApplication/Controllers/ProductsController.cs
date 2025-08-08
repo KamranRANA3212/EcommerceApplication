@@ -1,27 +1,25 @@
 using EcommerceApplication.Models.ViewModels;
-using EcommerceApplication.Services.Interfaces;
 using System;
 using System.Threading.Tasks;
 using System.Web.Mvc;
+using EcommerceApplication.Services;
+using Ecommerce_Application.Data;
 
 namespace EcommerceApplication.Controllers
 {
     public class ProductsController : Controller
     {
-        private readonly IProductService _productService;
-
-        public ProductsController(IProductService productService)
-        {
-            _productService = productService;
-        }
-
         // GET: /products
         public async Task<ActionResult> Index(string searchTerm, int? categoryFilter, int page = 1)
         {
             try
             {
-                var viewModel = await _productService.GetProductsAsync(searchTerm, categoryFilter, page);
-                return View(viewModel);
+                using (var connection = new DapperContext().CreateConnection())
+                {
+                    var service = new ProductService(connection);
+                    var viewModel = await service.GetProductsAsync(searchTerm, categoryFilter, page);
+                    return View(viewModel);
+                }
             }
             catch (Exception)
             {
@@ -35,12 +33,16 @@ namespace EcommerceApplication.Controllers
         {
             try
             {
-                var categories = await _productService.GetAllCategoriesAsync();
-                var viewModel = new ProductViewModel
+                using (var connection = new DapperContext().CreateConnection())
                 {
-                    Categories = categories
-                };
-                return PartialView("_AddProductModal", viewModel);
+                    var service = new ProductService(connection);
+                    var categories = await service.GetAllCategoriesAsync();
+                    var viewModel = new ProductViewModel
+                    {
+                        Categories = categories
+                    };
+                    return PartialView("_AddProductModal", viewModel);
+                }
             }
             catch (Exception)
             {
@@ -57,28 +59,35 @@ namespace EcommerceApplication.Controllers
             {
                 if (!ModelState.IsValid)
                 {
-                    var categories = await _productService.GetAllCategoriesAsync();
-                    productViewModel.Categories = categories;
-                    return Json(new { success = false, html = RenderPartialViewToString("_AddProductModal", productViewModel) });
+                    using (var connection = new DapperContext().CreateConnection())
+                    {
+                        var service = new ProductService(connection);
+                        var categories = await service.GetAllCategoriesAsync();
+                        productViewModel.Categories = categories;
+                        return Json(new { success = false, html = RenderPartialViewToString("_AddProductModal", productViewModel) });
+                    }
                 }
 
-                // Check if SKU is unique
-                if (!await _productService.IsSkuUniqueAsync(productViewModel.SKU))
+                using (var connection = new DapperContext().CreateConnection())
                 {
-                    ModelState.AddModelError("SKU", "SKU must be unique.");
-                    var categories = await _productService.GetAllCategoriesAsync();
-                    productViewModel.Categories = categories;
-                    return Json(new { success = false, html = RenderPartialViewToString("_AddProductModal", productViewModel) });
-                }
+                    var service = new ProductService(connection);
+                    if (!await service.IsSkuUniqueAsync(productViewModel.SKU))
+                    {
+                        ModelState.AddModelError("SKU", "SKU must be unique.");
+                        var categories = await service.GetAllCategoriesAsync();
+                        productViewModel.Categories = categories;
+                        return Json(new { success = false, html = RenderPartialViewToString("_AddProductModal", productViewModel) });
+                    }
 
-                var success = await _productService.CreateProductAsync(productViewModel);
-                if (success)
-                {
-                    return Json(new { success = true, message = "Product created successfully!" });
-                }
-                else
-                {
-                    return Json(new { success = false, message = "Failed to create product. Please try again." });
+                    var success = await service.CreateProductAsync(productViewModel);
+                    if (success)
+                    {
+                        return Json(new { success = true, message = "Product created successfully!" });
+                    }
+                    else
+                    {
+                        return Json(new { success = false, message = "Failed to create product. Please try again." });
+                    }
                 }
             }
             catch (ArgumentException ex)
@@ -96,14 +105,18 @@ namespace EcommerceApplication.Controllers
         {
             try
             {
-                var product = await _productService.GetProductByIdAsync(id);
-                if (product == null)
+                using (var connection = new DapperContext().CreateConnection())
                 {
-                    TempData["ErrorMessage"] = "Product not found.";
-                    return RedirectToAction(nameof(Index));
-                }
+                    var service = new ProductService(connection);
+                    var product = await service.GetProductByIdAsync(id);
+                    if (product == null)
+                    {
+                        TempData["ErrorMessage"] = "Product not found.";
+                        return RedirectToAction(nameof(Index));
+                    }
 
-                return View(product);
+                    return View(product);
+                }
             }
             catch (Exception)
             {
@@ -127,47 +140,62 @@ namespace EcommerceApplication.Controllers
 
                 if (!ModelState.IsValid)
                 {
-                    var categories = await _productService.GetAllCategoriesAsync();
-                    productViewModel.Categories = categories;
-                    return View(productViewModel);
+                    using (var connection = new DapperContext().CreateConnection())
+                    {
+                        var service = new ProductService(connection);
+                        var categories = await service.GetAllCategoriesAsync();
+                        productViewModel.Categories = categories;
+                        return View(productViewModel);
+                    }
                 }
 
-                // Check if SKU is unique (excluding current product)
-                if (!await _productService.IsSkuUniqueAsync(productViewModel.SKU, productViewModel.Id))
+                using (var connection = new DapperContext().CreateConnection())
                 {
-                    ModelState.AddModelError("SKU", "SKU must be unique.");
-                    var categories = await _productService.GetAllCategoriesAsync();
-                    productViewModel.Categories = categories;
-                    return View(productViewModel);
-                }
+                    var service = new ProductService(connection);
+                    if (!await service.IsSkuUniqueAsync(productViewModel.SKU, productViewModel.Id))
+                    {
+                        ModelState.AddModelError("SKU", "SKU must be unique.");
+                        var categories = await service.GetAllCategoriesAsync();
+                        productViewModel.Categories = categories;
+                        return View(productViewModel);
+                    }
 
-                var success = await _productService.UpdateProductAsync(productViewModel);
-                if (success)
-                {
-                    TempData["SuccessMessage"] = "Product updated successfully!";
-                    return RedirectToAction(nameof(Index));
-                }
-                else
-                {
-                    TempData["ErrorMessage"] = "Failed to update product. Please try again.";
-                    var categories = await _productService.GetAllCategoriesAsync();
-                    productViewModel.Categories = categories;
-                    return View(productViewModel);
+                    var success = await service.UpdateProductAsync(productViewModel);
+                    if (success)
+                    {
+                        TempData["SuccessMessage"] = "Product updated successfully!";
+                        return RedirectToAction(nameof(Index));
+                    }
+                    else
+                    {
+                        TempData["ErrorMessage"] = "Failed to update product. Please try again.";
+                        var categories = await service.GetAllCategoriesAsync();
+                        productViewModel.Categories = categories;
+                        return View(productViewModel);
+                    }
                 }
             }
             catch (ArgumentException ex)
             {
                 TempData["ErrorMessage"] = ex.Message;
-                var categories = await _productService.GetAllCategoriesAsync();
-                productViewModel.Categories = categories;
-                return View(productViewModel);
+                using (var connection = new DapperContext().CreateConnection())
+                {
+                    var service = new ProductService(connection);
+                    var categories = await service.GetAllCategoriesAsync();
+                    productViewModel.Categories = categories;
+                    return View(productViewModel);
+                }
             }
             catch (Exception)
             {
                 TempData["ErrorMessage"] = "An error occurred while updating the product.";
-                var categories = await _productService.GetAllCategoriesAsync();
-                productViewModel.Categories = categories;
-                return View(productViewModel);
+                using (var connection = new DapperContext().CreateConnection())
+                {
+                    var service = new ProductService(connection);
+                    var categories = await service.GetAllCategoriesAsync();
+                    productViewModel.Categories = categories;
+                    return View(productViewModel);
+                }
             }
         }
 
@@ -178,14 +206,18 @@ namespace EcommerceApplication.Controllers
         {
             try
             {
-                var success = await _productService.DeleteProductAsync(id);
-                if (success)
+                using (var connection = new DapperContext().CreateConnection())
                 {
-                    return Json(new { success = true, message = "Product deleted successfully!" });
-                }
-                else
-                {
-                    return Json(new { success = false, message = "Failed to delete product. Please try again." });
+                    var service = new ProductService(connection);
+                    var success = await service.DeleteProductAsync(id);
+                    if (success)
+                    {
+                        return Json(new { success = true, message = "Product deleted successfully!" });
+                    }
+                    else
+                    {
+                        return Json(new { success = false, message = "Failed to delete product. Please try again." });
+                    }
                 }
             }
             catch (Exception)
@@ -200,8 +232,12 @@ namespace EcommerceApplication.Controllers
         {
             try
             {
-                var isUnique = await _productService.IsSkuUniqueAsync(sku, excludeId);
-                return Json(new { isUnique }, JsonRequestBehavior.AllowGet);
+                using (var connection = new DapperContext().CreateConnection())
+                {
+                    var service = new ProductService(connection);
+                    var isUnique = await service.IsSkuUniqueAsync(sku, excludeId);
+                    return Json(new { isUnique }, JsonRequestBehavior.AllowGet);
+                }
             }
             catch
             {
