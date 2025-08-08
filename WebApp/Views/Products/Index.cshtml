@@ -1,0 +1,173 @@
+@model List<WebApp.Models.ProductListItemViewModel>
+@using WebApp.Models
+@{
+    ViewData["Title"] = "Products";
+    var categories = (IEnumerable<Domain.Entities.Category>)ViewBag.Categories;
+    var filter = (ProductIndexFilter)ViewBag.Filter;
+}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Products</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">Add Product</button>
+    </div>
+
+    <form method="get" action="/products" class="row g-2 mb-3">
+        <div class="col-md-4">
+            <input type="text" name="Search" value="@filter?.Search" class="form-control" placeholder="Search by name or SKU" />
+        </div>
+        <div class="col-md-3">
+            <select name="CategoryId" class="form-select">
+                <option value="">All Categories</option>
+                @foreach (var c in categories)
+                {
+                    <option value="@c.Id" selected="@(filter?.CategoryId == c.Id)">@c.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-secondary w-100" type="submit">Filter</button>
+        </div>
+    </form>
+
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Product Name</th>
+                <th>SKU</th>
+                <th class="text-end">Price</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Photo</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@item.ProductName</td>
+                    <td>@item.Sku</td>
+                    <td class="text-end">@item.Price.ToString("0.00")</td>
+                    <td>@item.CategoryName</td>
+                    <td>@item.Status</td>
+                    <td>
+                        @if (!string.IsNullOrEmpty(item.Photo))
+                        {
+                            <img src="@item.Photo" alt="photo" style="width:60px;height:auto;" />
+                        }
+                    </td>
+                    <td class="text-nowrap">
+                        <a class="btn btn-sm btn-outline-primary" href="/products/edit/@item.Id">Edit</a>
+                        <form method="post" action="/products/delete/@item.Id" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this product?');" type="submit">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Product</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addProductForm" enctype="multipart/form-data">
+          @Html.AntiForgeryToken()
+          <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Product Name</label>
+                <input class="form-control" name="ProductName" required />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">SKU</label>
+                <input class="form-control" name="Sku" required />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Price</label>
+                <input type="number" step="0.01" min="0.01" class="form-control" name="Price" required />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Category</label>
+                <select class="form-select" name="CategoryId" required>
+                    <option value="">Select...</option>
+                    @foreach (var c in categories)
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Status</label>
+                <select class="form-select" name="Status">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                </select>
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">Product Photo (JPG/PNG, < 25KB)</label>
+                <input type="file" accept=".jpg,.jpeg,.png" class="form-control" name="PhotoFile" id="photoInput" />
+            </div>
+            <div class="col-md-4">
+                <img id="photoPreview" src="#" alt="preview" style="display:none;max-width:100%;height:auto;border:1px solid #ddd;padding:2px;" />
+            </div>
+            <div class="col-12">
+                <div id="formErrors" class="text-danger small"></div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveProductBtn">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+@section Scripts{
+<script>
+const photoInput = document.getElementById('photoInput');
+const photoPreview = document.getElementById('photoPreview');
+photoInput?.addEventListener('change', (e) => {
+    const file = photoInput.files?.[0];
+    if (!file) { photoPreview.style.display='none'; return; }
+    const reader = new FileReader();
+    reader.onload = function(evt){
+        photoPreview.src = evt.target.result;
+        photoPreview.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+});
+
+const saveBtn = document.getElementById('saveProductBtn');
+saveBtn?.addEventListener('click', async () => {
+    const form = document.getElementById('addProductForm');
+    const data = new FormData(form);
+
+    const res = await fetch('/products/add', {
+        method: 'POST',
+        body: data,
+        headers: {
+            'Accept': 'application/json'
+        }
+    });
+    if (res.ok) {
+        location.reload();
+        return;
+    }
+    const payload = await res.json();
+    const errorsDiv = document.getElementById('formErrors');
+    if (payload && payload.errors) {
+        errorsDiv.innerHTML = Object.values(payload.errors).flat().map(e => `<div>${e}</div>`).join('');
+    } else {
+        errorsDiv.textContent = 'Failed to save product.';
+    }
+});
+</script>
+}
