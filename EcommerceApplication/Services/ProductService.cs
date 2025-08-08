@@ -3,7 +3,6 @@ using EcommerceApplication.Models.ViewModels;
 using EcommerceApplication.Services.Interfaces;
 using System.Data;
 using Dapper;
-using System.Threading.Tasks;
 using System;
 using System.Linq;
 using System.Web;
@@ -22,7 +21,7 @@ namespace EcommerceApplication.Services
             _db = db;
         }
 
-        public async Task<ProductListViewModel> GetProductsAsync(string searchTerm, int? categoryFilter, int page = 1, int pageSize = 10)
+        public ProductListViewModel GetProducts(string searchTerm, int? categoryFilter, int page = 1, int pageSize = 10)
         {
             var sql = @"SELECT p.*, c.Name as CategoryName 
                         FROM Product p 
@@ -33,11 +32,11 @@ namespace EcommerceApplication.Services
                         OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
                         SELECT COUNT(*) FROM Product p WHERE (@searchTerm IS NULL OR p.ProductName LIKE '%' + @searchTerm + '%' OR p.SKU LIKE '%' + @searchTerm + '%') AND (@categoryFilter IS NULL OR p.CategoryId = @categoryFilter);";
             var offset = (page - 1) * pageSize;
-            using (var multi = await _db.QueryMultipleAsync(sql, new { searchTerm, categoryFilter, Offset = offset, PageSize = pageSize }))
+            using (var multi = _db.QueryMultiple(sql, new { searchTerm, categoryFilter, Offset = offset, PageSize = pageSize }))
             {
-                var products = (await multi.ReadAsync<ProductViewModel>()).ToList();
-                var totalItems = await multi.ReadFirstAsync<int>();
-                var categories = await GetAllCategoriesAsync();
+                var products = multi.Read<ProductViewModel>().ToList();
+                var totalItems = multi.ReadFirst<int>();
+                var categories = GetAllCategories();
                 return new ProductListViewModel
                 {
                     Products = products,
@@ -51,16 +50,16 @@ namespace EcommerceApplication.Services
             }
         }
 
-        public async Task<ProductViewModel> GetProductByIdAsync(int id)
+        public ProductViewModel GetProductById(int id)
         {
             var sql = @"SELECT p.*, c.Name as CategoryName FROM Product p INNER JOIN Category c ON p.CategoryId = c.Id WHERE p.Id = @id";
-            var product = await _db.QueryFirstOrDefaultAsync<ProductViewModel>(sql, new { id });
+            var product = _db.QueryFirstOrDefault<ProductViewModel>(sql, new { id });
             if (product == null) return null;
-            product.Categories = await GetAllCategoriesAsync();
+            product.Categories = GetAllCategories();
             return product;
         }
 
-        public async Task<bool> CreateProductAsync(ProductViewModel productViewModel)
+        public bool CreateProduct(ProductViewModel productViewModel)
         {
             try
             {
@@ -75,9 +74,9 @@ namespace EcommerceApplication.Services
                 };
                 if (productViewModel.PhotoFile != null)
                 {
-                    product.Photo = await SavePhotoAsync(productViewModel.PhotoFile);
+                    product.Photo = SavePhoto(productViewModel.PhotoFile);
                 }
-                var id = await _db.ExecuteScalarAsync<int>(sql, product);
+                var id = _db.ExecuteScalar<int>(sql, product);
                 return id > 0;
             }
             catch
@@ -86,12 +85,12 @@ namespace EcommerceApplication.Services
             }
         }
 
-        public async Task<bool> UpdateProductAsync(ProductViewModel productViewModel)
+        public bool UpdateProduct(ProductViewModel productViewModel)
         {
             try
             {
                 var sql = @"UPDATE Product SET ProductName = @ProductName, SKU = @SKU, Price = @Price, CategoryId = @CategoryId, Status = @Status, Photo = @Photo WHERE Id = @Id";
-                var product = await _db.QueryFirstOrDefaultAsync<Product>("SELECT * FROM Product WHERE Id = @Id", new { productViewModel.Id });
+                var product = _db.QueryFirstOrDefault<Product>("SELECT * FROM Product WHERE Id = @Id", new { productViewModel.Id });
                 if (product == null) return false;
                 product.ProductName = productViewModel.ProductName;
                 product.SKU = productViewModel.SKU;
@@ -104,9 +103,9 @@ namespace EcommerceApplication.Services
                     {
                         DeletePhoto(product.Photo);
                     }
-                    product.Photo = await SavePhotoAsync(productViewModel.PhotoFile);
+                    product.Photo = SavePhoto(productViewModel.PhotoFile);
                 }
-                var affected = await _db.ExecuteAsync(sql, product);
+                var affected = _db.Execute(sql, product);
                 return affected > 0;
             }
             catch
@@ -115,18 +114,18 @@ namespace EcommerceApplication.Services
             }
         }
 
-        public async Task<bool> DeleteProductAsync(int id)
+        public bool DeleteProduct(int id)
         {
             try
             {
-                var product = await _db.QueryFirstOrDefaultAsync<Product>("SELECT * FROM Product WHERE Id = @id", new { id });
+                var product = _db.QueryFirstOrDefault<Product>("SELECT * FROM Product WHERE Id = @id", new { id });
                 if (product == null) return false;
                 if (!string.IsNullOrEmpty(product.Photo))
                 {
                     DeletePhoto(product.Photo);
                 }
                 var sql = "DELETE FROM Product WHERE Id = @id";
-                var affected = await _db.ExecuteAsync(sql, new { id });
+                var affected = _db.Execute(sql, new { id });
                 return affected > 0;
             }
             catch
@@ -135,21 +134,21 @@ namespace EcommerceApplication.Services
             }
         }
 
-        public async Task<List<Category>> GetAllCategoriesAsync()
+        public List<Category> GetAllCategories()
         {
             var sql = "SELECT * FROM Category ORDER BY Name";
-            var categories = (await _db.QueryAsync<Category>(sql)).ToList();
+            var categories = _db.Query<Category>(sql).ToList();
             return categories;
         }
 
-        public async Task<bool> IsSkuUniqueAsync(string sku, int excludeId = 0)
+        public bool IsSkuUnique(string sku, int excludeId = 0)
         {
             var sql = "SELECT COUNT(1) FROM Product WHERE SKU = @sku AND Id != @excludeId";
-            var count = await _db.ExecuteScalarAsync<int>(sql, new { sku, excludeId });
+            var count = _db.ExecuteScalar<int>(sql, new { sku, excludeId });
             return count == 0;
         }
 
-        private async Task<string> SavePhotoAsync(HttpPostedFileBase photoFile)
+        private string SavePhoto(HttpPostedFileBase photoFile)
         {
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
             var fileExtension = Path.GetExtension(photoFile.FileName).ToLowerInvariant();

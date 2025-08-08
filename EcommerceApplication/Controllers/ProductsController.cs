@@ -1,6 +1,5 @@
 using EcommerceApplication.Models.ViewModels;
 using System;
-using System.Threading.Tasks;
 using System.Web.Mvc;
 using EcommerceApplication.Services;
 using Ecommerce_Application.Data;
@@ -10,14 +9,14 @@ namespace EcommerceApplication.Controllers
     public class ProductsController : Controller
     {
         // GET: /products
-        public async Task<ActionResult> Index(string searchTerm, int? categoryFilter, int page = 1)
+        public ActionResult Index(string searchTerm, int? categoryFilter, int page = 1)
         {
             try
             {
                 using (var connection = new DapperContext().CreateConnection())
                 {
                     var service = new ProductService(connection);
-                    var viewModel = await service.GetProductsAsync(searchTerm, categoryFilter, page);
+                    var viewModel = service.GetProducts(searchTerm, categoryFilter, page);
                     return View(viewModel);
                 }
             }
@@ -29,14 +28,14 @@ namespace EcommerceApplication.Controllers
         }
 
         // GET: /products/add (Popup modal)
-        public async Task<ActionResult> Add()
+        public ActionResult Add()
         {
             try
             {
                 using (var connection = new DapperContext().CreateConnection())
                 {
                     var service = new ProductService(connection);
-                    var categories = await service.GetAllCategoriesAsync();
+                    var categories = service.GetAllCategories();
                     var viewModel = new ProductViewModel
                     {
                         Categories = categories
@@ -53,7 +52,7 @@ namespace EcommerceApplication.Controllers
         // POST: /products/add
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<JsonResult> Add(ProductViewModel productViewModel)
+        public JsonResult Add(ProductViewModel productViewModel)
         {
             try
             {
@@ -62,7 +61,7 @@ namespace EcommerceApplication.Controllers
                     using (var connection = new DapperContext().CreateConnection())
                     {
                         var service = new ProductService(connection);
-                        var categories = await service.GetAllCategoriesAsync();
+                        var categories = service.GetAllCategories();
                         productViewModel.Categories = categories;
                         return Json(new { success = false, html = RenderPartialViewToString("_AddProductModal", productViewModel) });
                     }
@@ -71,15 +70,15 @@ namespace EcommerceApplication.Controllers
                 using (var connection = new DapperContext().CreateConnection())
                 {
                     var service = new ProductService(connection);
-                    if (!await service.IsSkuUniqueAsync(productViewModel.SKU))
+                    if (!service.IsSkuUnique(productViewModel.SKU))
                     {
                         ModelState.AddModelError("SKU", "SKU must be unique.");
-                        var categories = await service.GetAllCategoriesAsync();
+                        var categories = service.GetAllCategories();
                         productViewModel.Categories = categories;
                         return Json(new { success = false, html = RenderPartialViewToString("_AddProductModal", productViewModel) });
                     }
 
-                    var success = await service.CreateProductAsync(productViewModel);
+                    var success = service.CreateProduct(productViewModel);
                     if (success)
                     {
                         return Json(new { success = true, message = "Product created successfully!" });
@@ -101,14 +100,14 @@ namespace EcommerceApplication.Controllers
         }
 
         // GET: /products/edit/:id
-        public async Task<ActionResult> Edit(int id)
+        public ActionResult Edit(int id)
         {
             try
             {
                 using (var connection = new DapperContext().CreateConnection())
                 {
                     var service = new ProductService(connection);
-                    var product = await service.GetProductByIdAsync(id);
+                    var product = service.GetProductById(id);
                     if (product == null)
                     {
                         TempData["ErrorMessage"] = "Product not found.";
@@ -128,7 +127,7 @@ namespace EcommerceApplication.Controllers
         // POST: /products/edit/:id
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<ActionResult> Edit(int id, ProductViewModel productViewModel)
+        public ActionResult Edit(int id, ProductViewModel productViewModel)
         {
             try
             {
@@ -143,7 +142,7 @@ namespace EcommerceApplication.Controllers
                     using (var connection = new DapperContext().CreateConnection())
                     {
                         var service = new ProductService(connection);
-                        var categories = await service.GetAllCategoriesAsync();
+                        var categories = service.GetAllCategories();
                         productViewModel.Categories = categories;
                         return View(productViewModel);
                     }
@@ -152,15 +151,15 @@ namespace EcommerceApplication.Controllers
                 using (var connection = new DapperContext().CreateConnection())
                 {
                     var service = new ProductService(connection);
-                    if (!await service.IsSkuUniqueAsync(productViewModel.SKU, productViewModel.Id))
+                    if (!service.IsSkuUnique(productViewModel.SKU, productViewModel.Id))
                     {
                         ModelState.AddModelError("SKU", "SKU must be unique.");
-                        var categories = await service.GetAllCategoriesAsync();
+                        var categories = service.GetAllCategories();
                         productViewModel.Categories = categories;
                         return View(productViewModel);
                     }
 
-                    var success = await service.UpdateProductAsync(productViewModel);
+                    var success = service.UpdateProduct(productViewModel);
                     if (success)
                     {
                         TempData["SuccessMessage"] = "Product updated successfully!";
@@ -169,7 +168,7 @@ namespace EcommerceApplication.Controllers
                     else
                     {
                         TempData["ErrorMessage"] = "Failed to update product. Please try again.";
-                        var categories = await service.GetAllCategoriesAsync();
+                        var categories = service.GetAllCategories();
                         productViewModel.Categories = categories;
                         return View(productViewModel);
                     }
@@ -181,7 +180,7 @@ namespace EcommerceApplication.Controllers
                 using (var connection = new DapperContext().CreateConnection())
                 {
                     var service = new ProductService(connection);
-                    var categories = await service.GetAllCategoriesAsync();
+                    var categories = service.GetAllCategories();
                     productViewModel.Categories = categories;
                     return View(productViewModel);
                 }
@@ -192,7 +191,7 @@ namespace EcommerceApplication.Controllers
                 using (var connection = new DapperContext().CreateConnection())
                 {
                     var service = new ProductService(connection);
-                    var categories = await service.GetAllCategoriesAsync();
+                    var categories = service.GetAllCategories();
                     productViewModel.Categories = categories;
                     return View(productViewModel);
                 }
@@ -202,14 +201,14 @@ namespace EcommerceApplication.Controllers
         // POST: /products/delete/:id
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<JsonResult> Delete(int id)
+        public JsonResult Delete(int id)
         {
             try
             {
                 using (var connection = new DapperContext().CreateConnection())
                 {
                     var service = new ProductService(connection);
-                    var success = await service.DeleteProductAsync(id);
+                    var success = service.DeleteProduct(id);
                     if (success)
                     {
                         return Json(new { success = true, message = "Product deleted successfully!" });
@@ -228,14 +227,14 @@ namespace EcommerceApplication.Controllers
 
         // GET: /products/check-sku
         [HttpGet]
-        public async Task<JsonResult> CheckSku(string sku, int excludeId = 0)
+        public JsonResult CheckSku(string sku, int excludeId = 0)
         {
             try
             {
                 using (var connection = new DapperContext().CreateConnection())
                 {
                     var service = new ProductService(connection);
-                    var isUnique = await service.IsSkuUniqueAsync(sku, excludeId);
+                    var isUnique = service.IsSkuUnique(sku, excludeId);
                     return Json(new { isUnique }, JsonRequestBehavior.AllowGet);
                 }
             }
